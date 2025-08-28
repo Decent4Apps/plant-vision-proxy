@@ -1,0 +1,19 @@
+{
+  "name": "plant-vision-proxy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@google/genai": "^0.9.0",
+    "next": "14.2.5",
+    "openai": "^4.60.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "typescript": "^5.5.4"
+  }
+}
