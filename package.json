@@ -2,11 +2,7 @@
   "name": "plant-vision-proxy",
   "private": true,
   "type": "module",
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
-  },
+  "scripts": { "dev": "next dev", "build": "next build", "start": "next start" },
   "dependencies": {
     "next": "14.2.5",
     "openai": "4.61.0",
@@ -18,7 +14,5 @@
     "typescript": "5.5.4",
     "@types/node": "20.14.10"
   },
-  "engines": {
-    "node": ">=18.18 <23"
-  }
+  "engines": { "node": ">=18.18 <23" }
 }
