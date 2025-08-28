@@ -1,3 +1,1 @@
-export default function Page() {
-  return null; // API-only app
-}
+export default function Page() { return null; }
