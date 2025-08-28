@@ -2,17 +2,23 @@
   "name": "plant-vision-proxy",
   "private": true,
   "type": "module",
-  "scripts": { "dev": "next dev", "build": "next build", "start": "next start" },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
   "dependencies": {
+    "@google/generative-ai": "0.19.0",
     "next": "14.2.5",
     "openai": "4.61.0",
-    "@google/generative-ai": "0.19.0",
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },
   "devDependencies": {
-    "typescript": "5.5.4",
-    "@types/node": "20.14.10"
+    "@types/node": "20.14.10",
+    "typescript": "5.5.4"
   },
-  "engines": { "node": ">=18.18 <23" }
+  "engines": {
+    "node": ">=18.18 <23"
+  }
 }
