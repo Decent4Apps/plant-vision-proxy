@@ -20,15 +20,16 @@ export async function POST(req) {
     const body = await req.json().catch(() => ({}));
     const { image, question, detail = "auto", expectJson = true, secret } = body || {};
 
-    if (!image) return NextResponse.json({ error: "Missing 'image'" }, { status: 400 });
+    if (!image) return NextResponse.json({ error: "Missing 'image' (data URL or https URL)" }, { status: 400 });
     if (process.env.PROXY_SECRET && secret !== process.env.PROXY_SECRET) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const prompt = question ||
-      "Identify the plant in the image. Return JSON with keys: scientificName, commonName, description.";
+    const prompt =
+      question ||
+      "Identify the plant in the image. Return concise JSON with keys: scientificName, commonName, description (one sentence). State uncertainty if unsure.";
 
-    // --- Primary: OpenAI ---
+    // ---- Primary: OpenAI (dynamic import to avoid build issues) ----
     try {
       const OpenAI = (await import("openai")).default;
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -41,16 +42,17 @@ export async function POST(req) {
       const r = await openai.chat.completions.create({
         model: OPENAI_MODEL,
         messages: [{ role: "user", content }],
+        temperature: 0.2,
         ...(expectJson ? { response_format: { type: "json_object" } } : {})
       });
 
       const text = r?.choices?.[0]?.message?.content?.trim() || "";
       return NextResponse.json({ provider: "openai", model: OPENAI_MODEL, text, data: tryJson(text) });
-    } catch (err) {
-      console.warn("OpenAI failed, trying Gemini:", err);
+    } catch (e) {
+      console.warn("OpenAI failed, using Gemini fallback:", e?.message || e);
     }
 
-    // --- Fallback: Gemini ---
+    // ---- Fallback: Gemini (dynamic import) ----
     try {
       const { GoogleGenerativeAI } = await import("@google/generative-ai");
       const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
@@ -66,8 +68,8 @@ export async function POST(req) {
       const res = await model.generateContent({ contents: [{ role: "user", parts }] });
       const text = res?.response?.text?.() || "";
       return NextResponse.json({ provider: "gemini", model: GEMINI_MODEL, text, data: tryJson(text) });
-    } catch (err2) {
-      console.error("Gemini failed:", err2);
+    } catch (e2) {
+      console.error("Gemini failed:", e2?.message || e2);
       return NextResponse.json({ error: "Both providers failed" }, { status: 502 });
     }
   } catch (e) {
