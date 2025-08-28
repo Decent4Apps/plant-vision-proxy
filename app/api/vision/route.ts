@@ -1,22 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Use Node.js runtime so both SDKs work comfortably
 export const runtime = "nodejs";
-// If your images are base64, keep them modest (<15–20MB total)
 export const maxDuration = 30;
 
 type ReqBody = {
-  image: string;                 // data URL (data:image/...;base64,xxx) OR https URL
-  question?: string;             // optional task, default = identify plant
+  image: string;                 // data URL or HTTPS URL
+  question?: string;
   detail?: "low" | "high" | "auto";
-  expectJson?: boolean;          // true => ask model to return JSON
-  secret?: string;               // optional shared secret
+  expectJson?: boolean;
+  secret?: string;
 };
 
-const OPENAI_MODEL = "gpt-4o-mini"; // or "gpt-4o"
-const GEMINI_MODEL = "gemini-2.0-flash"; // fast & multimodal
+const OPENAI_MODEL = "gpt-4o-mini";
+const GEMINI_MODEL = "gemini-1.5-flash"; // fast, multimodal
 
 function originAllowed(req: NextRequest) {
   const allowed = process.env.ALLOWED_ORIGINS?.split(",").map(s => s.trim()).filter(Boolean) ?? [];
@@ -46,7 +44,7 @@ export async function POST(req: NextRequest) {
       question ??
       "Identify the plant in the image. Return concise JSON with keys: scientificName, commonName, description (one sentence). State uncertainty if unsure.";
 
-    // Try OpenAI first
+    // 1) Try OpenAI first
     try {
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
       const content: any[] = [
@@ -67,53 +65,37 @@ export async function POST(req: NextRequest) {
         ...(expectJson ? { response_format: { type: "json_object" as const } } : {})
       });
 
-      const text =
-        response.choices?.[0]?.message?.content?.trim() ??
-        "";
-
+      const text = response.choices?.[0]?.message?.content?.trim() ?? "";
       return NextResponse.json({
         provider: "openai",
         model: OPENAI_MODEL,
         text,
-        // try JSON parse; if fails, just echo text
-        data: safeJson(text)
+        data: tryJson(text)
       });
     } catch (err) {
-      // continue to fallback
       console.warn("OpenAI vision failed; falling back to Gemini:", err);
     }
 
-    // Fallback: Gemini
+    // 2) Fallback to Gemini
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
-      const contents = [
-        { role: "user", parts: [{ text: prompt }] },
-        {
-          role: "user",
-          parts: [
-            image.startsWith("http")
-              ? { fileData: { fileUri: image, mimeType: guessMime(image) } }
-              : {
-                  inlineData: {
-                    mimeType: "image/jpeg",
-                    data: image.split(",").pop() || image // allow raw base64 or data URL
-                  }
-                }
-          ]
-        }
-      ];
+      const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
 
-      const res = await ai.models.generateContent({
-        model: GEMINI_MODEL,
-        contents
-      });
+      // Build parts: prompt + image (inline base64 or URL)
+      const parts: any[] = [{ text: prompt }];
+      parts.push(
+        image.startsWith("http")
+          ? { fileData: { mimeType: guessMime(image), fileUri: image } }
+          : { inlineData: { mimeType: "image/jpeg", data: image.split(",").pop() || image } }
+      );
 
-      const text = res.text?.trim() ?? "";
+      const res = await model.generateContent({ contents: [{ role: "user", parts }] });
+      const text = res.response?.text?.() ?? ""; // SDK exposes text() helper
       return NextResponse.json({
         provider: "gemini",
         model: GEMINI_MODEL,
         text,
-        data: safeJson(text)
+        data: tryJson(text)
       });
     } catch (err2) {
       console.error("Gemini fallback failed:", err2);
@@ -125,7 +107,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-function safeJson(s: string) {
+function tryJson(s: string) {
   try { return JSON.parse(s); } catch { return null; }
 }
 function guessMime(url: string) {
