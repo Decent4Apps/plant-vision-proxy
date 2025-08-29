@@ -12,26 +12,10 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         {children}
-
-        {/* Web Analytics (page views, referrers, etc.) */}
-        <Analytics
-          beforeSend={(event) => {
-            try {
-              const u = new URL(event.url);
-              // Ignore API routes so analytics only logs page views
-              if (u.pathname.startsWith("/api")) return null;
-              // Strip query params to avoid leaking IDs/tokens
-              u.search = "";
-              return { ...event, url: u.toString() };
-            } catch {
-              return event;
-            }
-          }}
-        />
-
-        {/* Core Web Vitals & performance metrics */}
+        <Analytics />
         <SpeedInsights />
       </body>
     </html>
   );
 }
+
