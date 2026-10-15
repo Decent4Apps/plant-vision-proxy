@@ -1,3 +1,4 @@
+import { authorizePaidRequest, readPaidJson } from "../../../lib/paid-security.mjs";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -16,8 +17,9 @@ function guessMime(url) {
 }
 
 export async function POST(req) {
+  const denied = await authorizePaidRequest(req); if (denied) return denied;
   try {
-    const body = await req.json().catch(() => ({}));
+    const body = await readPaidJson(req, 8_000_000);
     const { image, question, detail = "auto", expectJson = true, secret } = body || {};
 
     if (!image) return NextResponse.json({ error: "Missing 'image' (data URL or https URL)" }, { status: 400 });
@@ -43,6 +45,7 @@ export async function POST(req) {
         model: OPENAI_MODEL,
         messages: [{ role: "user", content }],
         temperature: 0.2,
+        max_tokens: 1024,
         ...(expectJson ? { response_format: { type: "json_object" } } : {})
       });
 
@@ -56,7 +59,7 @@ export async function POST(req) {
     try {
       const { GoogleGenerativeAI } = await import("@google/generative-ai");
       const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
-      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL, generationConfig: { maxOutputTokens: 1024 } });
 
       const parts = [{ text: prompt }];
       parts.push(
